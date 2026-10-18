@@ -47,19 +47,29 @@ cd ai-toggle-plasmoid
 ./install.sh
 ```
 
-Poi: tasto destro sul pannello → **Aggiungi widget…** → cerca **AI Toggle** → trascinalo sul pannello o sul desktop.
+`install.sh` copia soltanto il widget in `~/.local/share/plasma/plasmoids/org.andry.aitoggle/`: **non lo mette sul pannello**. Va aggiunto a mano una sola volta:
 
-Se non compare nell'elenco, riavvia la shell:
+1. tasto destro su uno spazio vuoto del pannello → **Aggiungi o gestisci widget…** (o **Aggiungi widget…**)
+2. nella ricerca scrivi **AI Toggle**
+3. trascinalo nel punto del pannello (o del desktop) che preferisci, oppure doppio clic per aggiungerlo in fondo
+
+Se non compare nella ricerca, riavvia la shell e riprova:
 
 ```sh
 kquitapp6 plasmashell && kstart plasmashell
 ```
 
-Il widget viene installato in `~/.local/share/plasma/plasmoids/org.andry.aitoggle/`.
-
 ## Aggiornamento
 
-Dopo un `git pull` rilancia `./install.sh` (fa l'upgrade). Se la modifica non si vede, riavvia plasmashell come sopra.
+Dopo un `git pull` (o una modifica ai file) rilancia `./install.sh`: fa l'upgrade del widget già installato. Poi riavvia plasmashell con il comando sopra per caricare la nuova versione: il widget resta dov'era sul pannello, non serve riaggiungerlo.
+
+## Problemi comuni
+
+- **Ho riavviato plasmashell ma non vedo il widget** → non è ancora stato aggiunto al pannello: vedi i 3 passi di *Installazione*. Il riavvio aggiorna solo un widget già presente.
+- **Non compare nella ricerca dei widget** → controlla che sia installato: `kpackagetool6 -t Plasma/Applet --show org.andry.aitoggle`. Se dice che non esiste, rilancia `./install.sh`.
+- **Resta su "AI in avvio…"** → llama-swap (porta 9292) o Open WebUI (porta 8080) non rispondono: `systemctl --user status llama-swap open-webui`. Se uno è `failed`: `systemctl --user reset-failed` e riaccendi.
+- **VRAM: —** → la GPU non espone `mem_info_vram_used` (es. NVIDIA): va adattato `contents/code/poll.sh`.
+- **Errori del widget** → avvialo in una finestra a parte e leggi gli errori nel terminale: `plasmawindowed org.andry.aitoggle`.
 
 ## Disinstallazione
 
