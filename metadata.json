@@ -1,14 +1,14 @@
 {
     "KPackageStructure": "Plasma/Applet",
     "KPlugin": {
-        "Id": "org.andry.aitoggle",
+        "Id": "io.github.andry360.aitoggle",
         "Name": "AI Toggle",
-        "Description": "Accendi/spegni ai.target e vedi la VRAM usata",
+        "Description": "Turn ai.target on or off and see the VRAM in use",
         "Icon": "cpu",
         "Authors": [{ "Name": "andry360" }],
         "Category": "System Information",
         "License": "MIT",
-        "Version": "1.0"
+        "Version": "1.1"
     },
     "X-Plasma-API-Minimum-Version": "6.0"
 }

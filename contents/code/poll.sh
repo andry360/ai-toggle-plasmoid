@@ -1,9 +1,9 @@
 #!/bin/sh
-# Sonda leggera per il widget: stampa righe chiave=valore (valori di memoria in MB).
+# Lightweight probe for the widget: prints key=value lines (memory values in MB).
 #   ai=active|inactive|activating|deactivating|failed
-#   gpu=<nome>;<vram_used>;<vram_total>;<gtt_used>;<gtt_total>   (una riga per GPU)
-#   llama_rss=<MB>                                                (solo se llama-server gira)
-# Usa quasi solo comandi interni della shell: gira ogni 2 s.
+#   gpu=<nome>;<vram_used>;<vram_total>;<gtt_used>;<gtt_total>   (one line per GPU)
+#   llama_rss=<MB>                                                (only while llama-server runs)
+# Uses almost only shell built-ins: it runs every 2 s.
 
 ai=$(systemctl --user is-active ai.target)
 echo "ai=$ai"
@@ -12,7 +12,7 @@ cache="${XDG_RUNTIME_DIR:-/tmp}/aitoggle-gpu"
 for d in /sys/class/drm/card[0-9]*/device; do
     [ -r "$d/mem_info_vram_total" ] || continue
     card=${d%/device}; card=${card##*/}
-    # Nome leggibile da lspci, calcolato una sola volta e tenuto in cache
+    # Readable name from lspci, computed once and cached
     if ! read -r name 2>/dev/null < "$cache-$card"; then
         name=$(lspci -s "$(basename "$(readlink -f "$d")")" 2>/dev/null | sed -n 's/.*\[\([^]]*\)\].*/\1/p' | sed 's| / .*||')
         [ -n "$name" ] || name="GPU $card"

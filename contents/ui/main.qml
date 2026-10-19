@@ -8,20 +8,20 @@ import org.kde.kirigami as Kirigami
 PlasmoidItem {
     id: root
 
-    // --- Dati grezzi -------------------------------------------------------
-    property string target: "inactive"     // stato di ai.target da systemctl
-    property string pending: ""            // "start" | "stop" dopo un click, finché systemd non conferma
+    // --- Raw data ----------------------------------------------------------
+    property string target: "inactive"     // ai.target state from systemctl
+    property string pending: ""            // "start" | "stop" after a click, until systemd confirms
     property double pendingSince: 0
     property var gpus: []                  // [{name, vram, vramTotal, gtt, gttTotal}] in MB
-    property int llamaRss: 0               // MB di RAM normale usati da llama-server
-    property bool swapOk: false            // llama-swap risponde (9292)
-    property bool webuiOk: false           // Open WebUI risponde (8080)
-    property string model: ""              // modello caricato da llama-swap
+    property int llamaRss: 0               // MB of regular RAM used by llama-server
+    property bool swapOk: false            // llama-swap answers (9292)
+    property bool webuiOk: false           // Open WebUI answers (8080)
+    property string model: ""              // model loaded by llama-swap
     property string modelState: ""         // starting | ready | ...
-    property int modelTtl: 0               // secondi di inattività prima dello scaricamento
+    property int modelTtl: 0               // idle seconds before the model is unloaded
     property int ctxUsed: 0
     property int ctxMax: 0
-    property int ctxTrain: 0               // contesto massimo supportato dal modello
+    property int ctxTrain: 0               // maximum context supported by the model
     property string ctxTrainModel: ""
     property bool generating: false
 
@@ -29,7 +29,7 @@ PlasmoidItem {
     readonly property string webuiUrl: "http://127.0.0.1:8080"
     readonly property int gttWarnMB: 512
 
-    // --- Stato derivato ----------------------------------------------------
+    // --- Derived state -----------------------------------------------------
     readonly property var mainGpu: gpus.length ? gpus.reduce((a, b) => b.vramTotal > a.vramTotal ? b : a) : null
     readonly property bool targetUp: target === "active" || target === "activating" || target === "reloading"
     readonly property string phase: {
@@ -60,19 +60,19 @@ PlasmoidItem {
     }
     readonly property string phaseText: {
         switch (phase) {
-        case "off": return "AI disattivo"
-        case "starting": return "AI in avvio…"
-        case "stopping": return "AI in spegnimento…"
-        case "loading": return "Carico " + model + "…"
+        case "off": return "AI off"
+        case "starting": return "AI starting…"
+        case "stopping": return "AI stopping…"
+        case "loading": return "Loading " + model + "…"
         case "model": return "AI · " + model
-        default: return "AI pronto"
+        default: return "AI ready"
         }
     }
 
     preferredRepresentation: fullRepresentation
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
-    // --- Formattazione -----------------------------------------------------
+    // --- Formatting --------------------------------------------------------
     function mb(n) { return Number(n).toLocaleString(Qt.locale(), 'f', 0) + " MB" }
     function ktok(n) { return n >= 10240 ? Math.round(n / 1024) + "k" : (n / 1024).toFixed(1) + "k" }
     function ctxColor() {
@@ -81,7 +81,7 @@ PlasmoidItem {
         return Kirigami.Theme.textColor
     }
 
-    // --- Sonda locale (systemd, sysfs, /proc) ogni 2 s -------------------------
+    // --- Local probe (systemd, sysfs, /proc) every 2 s --------------------------
     readonly property string pollCmd:
         "sh '" + decodeURIComponent(Qt.resolvedUrl("../code/poll.sh").toString().replace("file://", "")) + "'"
 
@@ -110,7 +110,7 @@ PlasmoidItem {
         gpus = list
         llamaRss = rss
 
-        // Il click è confermato quando systemd raggiunge lo stato richiesto (o dopo 2 min)
+        // A click is confirmed when systemd reaches the requested state (or after 2 min)
         if ((pending === "start" && target === "active") ||
             (pending === "stop" && !targetUp && target !== "deactivating") ||
             (pending && Date.now() - pendingSince > 120000))
@@ -120,13 +120,13 @@ PlasmoidItem {
         else resetHttp()
     }
 
-    // --- Sonde HTTP (solo con AI attiva, nessun processo esterno) ---------------
+    // --- HTTP probes (only while AI is on, no external process) ------------------
     property var inflight: ({})
 
     function getJson(key, url, done) {
         const old = inflight[key]
         if (old) {
-            if (Date.now() - old.t < 10000) return   // richiesta precedente ancora in corso
+            if (Date.now() - old.t < 10000) return   // previous request still running
             old.x.abort()
         }
         const x = new XMLHttpRequest()
@@ -182,7 +182,7 @@ PlasmoidItem {
         ctxUsed = 0; ctxMax = 0; generating = false
     }
 
-    // --- Azioni ------------------------------------------------------------------
+    // --- Actions -----------------------------------------------------------------
     Plasma5Support.DataSource {
         id: runner
         engine: "executable"
@@ -202,28 +202,28 @@ PlasmoidItem {
         for (const g of gpus) {
             L.push(g.name)
             L.push("   VRAM " + mb(g.vram) + " / " + mb(g.vramTotal))
-            L.push("   RAM usata dalla GPU (GTT) " + mb(g.gtt) + (g.gtt > gttWarnMB ? "  ⚠ VRAM insufficiente?" : ""))
+            L.push("   RAM used by the GPU (GTT) " + mb(g.gtt) + (g.gtt > gttWarnMB ? "  ⚠ not enough VRAM?" : ""))
         }
-        if (llamaRss > 0) L.push("RAM del modello (llama-server): " + mb(llamaRss))
+        if (llamaRss > 0) L.push("Model RAM (llama-server): " + mb(llamaRss))
         if (aiOn) {
             L.push("")
-            L.push("llama-swap: " + (swapOk ? "ok" : "in avvio") + " · Open WebUI: " + (webuiOk ? "ok" : "in avvio"))
+            L.push("llama-swap: " + (swapOk ? "ok" : "starting") + " · Open WebUI: " + (webuiOk ? "ok" : "starting"))
             if (phase === "model") {
-                L.push("Contesto: " + ctxUsed.toLocaleString(Qt.locale(), 'f', 0) + " / " +
-                       ctxMax.toLocaleString(Qt.locale(), 'f', 0) + " token (" + Math.round(ctxRatio * 100) + "%)" +
-                       (generating ? " · sta generando" : ""))
-                if (ctxTrain > ctxMax) L.push("   il modello supporta fino a " + ktok(ctxTrain) + " (opzione -c)")
+                L.push("Context: " + ctxUsed.toLocaleString(Qt.locale(), 'f', 0) + " / " +
+                       ctxMax.toLocaleString(Qt.locale(), 'f', 0) + " tokens (" + Math.round(ctxRatio * 100) + "%)" +
+                       (generating ? " · generating" : ""))
+                if (ctxTrain > ctxMax) L.push("   the model supports up to " + ktok(ctxTrain) + " (option -c)")
             } else if (phase === "ready") {
-                L.push("Nessun modello in memoria: si carica alla prima domanda")
+                L.push("No model in memory: it loads on the first request")
             }
-            if (modelTtl > 0) L.push("Scaricato dopo " + Math.round(modelTtl / 60) + " min di inattività")
+            if (modelTtl > 0) L.push("Unloaded after " + Math.round(modelTtl / 60) + " min of inactivity")
         }
         L.push("")
-        L.push("Clic: " + (aiOn ? "spegni" : "accendi") + " · Clic centrale: apri Open WebUI")
+        L.push("Click: " + (aiOn ? "turn off" : "turn on") + " · Middle click: open Open WebUI")
         return L.join("\n")
     }
 
-    // --- Aspetto -------------------------------------------------------------------
+    // --- Appearance ----------------------------------------------------------------
     fullRepresentation: Item {
         Layout.minimumWidth: Kirigami.Units.gridUnit * 11
         Layout.preferredWidth: Math.max(Kirigami.Units.gridUnit * 11, content.implicitWidth + Kirigami.Units.gridUnit * 1.5)
@@ -255,7 +255,7 @@ PlasmoidItem {
                     height: width
                     radius: width / 2
                     color: root.phaseColor
-                    // Pulsa durante le transizioni e mentre il modello genera
+                    // Pulses during transitions and while the model is generating
                     SequentialAnimation on opacity {
                         running: ["starting", "stopping", "loading"].includes(root.phase) || root.generating
                         loops: Animation.Infinite
